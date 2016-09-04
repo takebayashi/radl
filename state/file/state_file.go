@@ -10,7 +10,7 @@ import (
 )
 
 type fileState struct {
-	file     *os.File
+	filename string
 	statuses fileStateEntries
 }
 
@@ -76,11 +76,12 @@ func (e *fileStateEntry) UnmarshalText(text []byte) error {
 
 func NewFileState(filename string) (*fileState, error) {
 	fs := &fileState{}
+	fs.filename = filename
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}
-	fs.file = f
+	defer f.Close()
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return nil, err
@@ -116,11 +117,16 @@ func (fs *fileState) Update(show radl.Show) error {
 		Index:    show.Index(),
 		Done:     true,
 	})
-	fs.file.Truncate(0)
+	os.Truncate(fs.filename, 0)
+	f, err := os.OpenFile(fs.filename, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	b, err := fs.statuses.MarshalText()
 	if err != nil {
 		return err
 	}
-	fs.file.Write(b)
+	f.Write(b)
 	return nil
 }
